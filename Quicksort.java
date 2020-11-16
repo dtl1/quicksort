@@ -17,16 +17,23 @@ public class Quicksort {
         //stoopid
         int[] dummy = {0};
 
-        for(int i = 1; i < 1000; i ++){
-           int[] array = new int[rand.nextInt(100 - 1 + 1) + 1];
+        for (int i = 1; i < 1000; i++) {
+            //metricTimes1
+            // int[] array = new int[rand.nextInt(100 - 1 + 1) + 1];
 
-           for(int j = 0; j < array.length - 1; j++){
+            //metricTimes2
+            int[] array = new int[i];
 
-               //random int from 1 - 100
-               array[j] = rand.nextInt(100 - 1 + 1) + 1;
-           }
+            //metricTimes3
+            //int[] array = new int[100];
 
-           arrays.add(array);
+            for (int j = 0; j < array.length - 1; j++) {
+
+                //random int from 1 - 100
+                array[j] = rand.nextInt(100 - 1 + 1) + 1;
+            }
+
+            arrays.add(array);
         }
 
 //        int[] a1 = {4,1,3,2};
@@ -49,7 +56,7 @@ public class Quicksort {
 
         int c = 0;
 
-        for(int[] array: arrays){
+        for (int[] array : arrays) {
             swaps = 0;
             double timeTaken = timeAndSort(array);
             metricTimes[c][0] = swaps;
@@ -57,55 +64,64 @@ public class Quicksort {
             c++;
         }
 
+        //pruneOutliers(metricTimes);
+
         try {
             writeTimes(metricTimes);
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
 
+
     }
+
+
+    static void pruneOutliers(double[][] metricTimes){
+        //TODO get pruning
+    }
+
 
     static void writeTimes(double[][] metricTimes) throws IOException {
 
 
+        FileWriter writer = new FileWriter("metricTimes3.csv");
 
-        FileWriter writer = new FileWriter("metricTimes.csv");
-
-        String strVar;
 
         //skip the first dummy result
         for (int i = 1; i < metricTimes.length; i++) {
-            strVar = (int) metricTimes[i][0] + "," + metricTimes[i][1] + "\n";
+            int swap = (int) metricTimes[i][0];
+            double time = metricTimes[i][1];
+
+            String strVar = swap + "," + time + "\n";
             writer.append(strVar);
         }
+
 
         writer.flush();
         writer.close();
 
 
-
-
     }
 
 
-    static double timeAndSort(int[] array){
+    static double timeAndSort(int[] array) {
 
         System.out.println(Arrays.toString(array));
 
         //get starting system time in nanoseconds
         long startTime = System.nanoTime();
 
-        quickSort(array,0,array.length - 1);
+        quickSort(array, 0, array.length - 1);
 
         //get ending system time in nanoseconds
         long endTime = System.nanoTime();
 
         //get the difference in milliseconds
-        double diffTime = (endTime - startTime) /1e6;
+        double diffTime = (endTime - startTime) / 1e6;
 
 
-        System.out.println(diffTime +" ms");
+        System.out.println(diffTime + " ms");
         System.out.println(swaps + " swaps");
         System.out.println("\n");
 
@@ -115,9 +131,10 @@ public class Quicksort {
 
     /**
      * quicksort algorithm
+     *
      * @param array array to be sorted
      * @param start starting index
-     * @param end ending index
+     * @param end   ending index
      */
     static void quickSort(int[] array, int start, int end) {
 
@@ -141,10 +158,10 @@ public class Quicksort {
      *
      * @param array array or sub array being sorted
      * @param start first index of array or sub array
-     * @param end last index of array or sub array
+     * @param end   last index of array or sub array
      * @return partition index
      */
-    static int partition (int[] array, int start, int end) {
+    static int partition(int[] array, int start, int end) {
 
         // pivot
         int pivot = array[end];
@@ -157,7 +174,7 @@ public class Quicksort {
             if (array[j] < pivot) {
                 i++;    // increment index of smaller element
 
-                if(array[j] != array[i] ) {
+                if (array[j] != array[i]) {
                     int temp = array[j];
                     array[j] = array[i];
                     array[i] = temp;
@@ -167,7 +184,7 @@ public class Quicksort {
             }
         }
 
-        if(array[i+1] != array[end] ) {
+        if (array[i + 1] != array[end]) {
             int temp = array[i + 1];
             array[i + 1] = array[end];
             array[end] = temp;
