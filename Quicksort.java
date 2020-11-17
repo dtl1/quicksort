@@ -1,36 +1,45 @@
-import kotlin.Pair;
-
 import java.io.*;
 import java.util.*;
-
-//https://technologyrediscovery.net/javaoo2/sorting.html
 
 public class Quicksort {
 
     static int swaps;
+    static final int NUMARRAYS = 50000;
+
+    static final int MAXRANDELEMENT = 1000;
+    static final int MINRANDELEMENT = 1;
+
+    static final int MAXARRAYLEN= 1000;
+    static final int MINARRAYLEN = 1;
 
     public static void main(String[] args) {
-        Random rand = new Random();
 
+        System.out.println("Creating "+NUMARRAYS+" arrays");
+        System.out.println("With random length: "+MINARRAYLEN+"->"+MAXARRAYLEN);
+        System.out.println("Filled with random elements: "+MINRANDELEMENT+"->"+MAXRANDELEMENT+"\n");
+
+        Random rand = new Random();
         ArrayList<int[]> arrays = new ArrayList<>();
 
         //stoopid
         int[] dummy = {0};
 
-        for (int i = 1; i < 1000; i++) {
-            //metricTimes1
-            // int[] array = new int[rand.nextInt(100 - 1 + 1) + 1];
+        arrays.add(dummy);
 
-            //metricTimes2
-            int[] array = new int[i];
+        for (int i = 1; i < NUMARRAYS; i++) {
+            //swapTimes1
+            int[] array = new int[rand.nextInt(MAXARRAYLEN - MINARRAYLEN + MINARRAYLEN) + MINARRAYLEN];
 
-            //metricTimes3
+            //swapTimes2
+            // int[] array = new int[i];
+
+            //swapTimes3
             //int[] array = new int[100];
 
             for (int j = 0; j < array.length - 1; j++) {
 
                 //random int from 1 - 100
-                array[j] = rand.nextInt(100 - 1 + 1) + 1;
+                array[j] = rand.nextInt(MAXRANDELEMENT - MINRANDELEMENT + MINRANDELEMENT) + MINRANDELEMENT;
             }
 
             arrays.add(array);
@@ -52,81 +61,163 @@ public class Quicksort {
 //        arrays.add(a6);
 
 
-        double[][] metricTimes = new double[arrays.size()][2];
+        double[][] swapTimes = new double[arrays.size()][3];
 
         int c = 0;
 
         for (int[] array : arrays) {
             swaps = 0;
             double timeTaken = timeAndSort(array);
-            metricTimes[c][0] = swaps;
-            metricTimes[c][1] = timeTaken;
+            swapTimes[c][0] = swaps;
+            swapTimes[c][1] = timeTaken;
+            swapTimes[c][2] = array.length;
             c++;
         }
 
-        //pruneOutliers(metricTimes);
+        double[][] pruned = pruneOutliers(swapTimes);
+        double[][] csvData = calculateMetrics(pruned);
 
         try {
-            writeTimes(metricTimes);
+            writeData(csvData);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
 
-
     }
 
-
-    static void pruneOutliers(double[][] metricTimes){
-        //TODO get pruning
-    }
+    static double[][] pruneOutliers(double[][] swapTimes) {
 
 
-    static void writeTimes(double[][] metricTimes) throws IOException {
+        double[][] prunedTimes = new double[swapTimes.length][3];
 
-
-        FileWriter writer = new FileWriter("metricTimes3.csv");
+        double sumTimes = 0;
+        double avgTime;
 
 
         //skip the first dummy result
-        for (int i = 1; i < metricTimes.length; i++) {
-            int swap = (int) metricTimes[i][0];
-            double time = metricTimes[i][1];
+        for (int i = 1; i < swapTimes.length; i++) {
+            sumTimes += swapTimes[i][1];
+        }
 
-            String strVar = swap + "," + time + "\n";
-            writer.append(strVar);
+        avgTime = sumTimes / swapTimes.length;
+
+        double validMax = avgTime * 2   ;
+
+        System.out.println("Average sort time from dataset: "  + avgTime+"ms");
+        System.out.println("Maximum non-outlier time: " + validMax +"ms\n");
+
+        int c = 0;
+        int prunes = 0;
+        //skip the first dummy result
+        for (int i = 1; i < swapTimes.length; i++) {
+            if (swapTimes[i][1] < validMax) {
+                prunedTimes[c][0] = swapTimes[i][0];
+                prunedTimes[c][1] = swapTimes[i][1];
+                prunedTimes[c][2] = swapTimes[i][2];
+                c++;
+            } else{
+                if(prunes <= 50) {
+                    System.out.println("Pruned a row of data with time: " + swapTimes[i][1] + "ms");
+                } else if(prunes == 51){
+                    System.out.println("Over 50 records pruned... cancelling system outs to reduce clutter");
+                }
+                prunes++;
+            }
+        }
+
+        System.out.println("\nPruned dataset now contains: " + (prunedTimes.length - prunes) + " records");
+
+        return prunedTimes;
+
+
+    }
+
+    static double[][] calculateMetrics(double[][] pruned){
+
+        //find maximum number of swaps in the data
+        int maxSwaps = 0;
+        for (double[] row : pruned) {
+            if( (int) row[0] > maxSwaps)
+                maxSwaps = (int) row[0];
+        }
+
+        //calculating "sortedness" metric by dividing number of swaps by the maximum
+        //therefore
+        //sorted = 0
+        //unsorted = 1
+        //0 > slightly sorted < 1
+        for (int i = 0; i < pruned.length; i++) {
+            double metric = pruned[i][0] / maxSwaps;
+            pruned[i][0] = metric;
+        }
+
+            return pruned;
+
+        }
+
+    static void writeData(double[][] csvData) throws IOException {
+
+
+        FileWriter writer = new FileWriter("metricTimes.csv");
+
+        System.out.println("\nWriting data...");
+
+        writer.append("Sortedness,Time(ms),Length\n");
+
+        for (double[] row : csvData) {
+
+            //skips null elements where outliers have been removed
+            if (row[1] != 0) {
+
+
+                double swap = row[0];
+                double time = row[1];
+                int length = (int) row[2];
+
+                String strVar = swap + "," + time + "," + length + "\n";
+                writer.append(strVar);
+            }
         }
 
 
         writer.flush();
         writer.close();
 
+        System.out.print( "... data successfully written");
+
 
     }
 
-
+    /**
+     * calls the quicksort function on an unsorted array and calculates the time taken
+     * to sort the array
+     *
+     * @param array array to be sorted
+     * @return the time taken to sort the array
+     */
     static double timeAndSort(int[] array) {
 
-        System.out.println(Arrays.toString(array));
+     //debug sysout
+        //System.out.println(Arrays.toString(array));
 
         //get starting system time in nanoseconds
         long startTime = System.nanoTime();
 
+        //sort the array
         quickSort(array, 0, array.length - 1);
 
         //get ending system time in nanoseconds
         long endTime = System.nanoTime();
 
-        //get the difference in milliseconds
-        double diffTime = (endTime - startTime) / 1e6;
 
+     //debug sysout
+        //System.out.println(diffTime + " ms");
+        //System.out.println(swaps + " swaps");
+        //System.out.println("\n");
 
-        System.out.println(diffTime + " ms");
-        System.out.println(swaps + " swaps");
-        System.out.println("\n");
-
-
-        return diffTime;
+        //return the difference in milliseconds
+        return (endTime - startTime) / 1e6;
     }
 
     /**
