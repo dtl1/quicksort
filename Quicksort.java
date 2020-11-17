@@ -4,86 +4,123 @@ import java.util.*;
 public class Quicksort {
 
     static int swaps;
-    static final int NUMARRAYS = 50000;
+    static final int NUMARRAYS = 100;
 
-    static final int MAXRANDELEMENT = 1000;
+    static final int MAXRANDELEMENT = 10;
     static final int MINRANDELEMENT = 1;
 
-    static final int MAXARRAYLEN= 1000;
-    static final int MINARRAYLEN = 1;
+    static final int MAXARRAYLEN = 10;
+    static final int MINARRAYLEN = 10;
+
+    static final int OUTLIERTOLERANCE = 2;
 
     public static void main(String[] args) {
 
-        System.out.println("Creating "+NUMARRAYS+" arrays");
-        System.out.println("With random length: "+MINARRAYLEN+"->"+MAXARRAYLEN);
-        System.out.println("Filled with random elements: "+MINRANDELEMENT+"->"+MAXRANDELEMENT+"\n");
+        System.out.println("Creating " + NUMARRAYS + " arrays");
+        System.out.println("With random length: " + MINARRAYLEN + "->" + MAXARRAYLEN);
+        System.out.println("Filled with random elements: " + MINRANDELEMENT + "->" + MAXRANDELEMENT + "\n");
 
-        Random rand = new Random();
-        ArrayList<int[]> arrays = new ArrayList<>();
+        //array list of all created arrays
+        ArrayList<int[]> arrays = createArrays();
 
-        //stoopid
-        int[] dummy = {0};
+        //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
+        double[][] swapTimes = sortArrays(arrays);
 
-        arrays.add(dummy);
-
-        for (int i = 1; i < NUMARRAYS; i++) {
-            //swapTimes1
-            int[] array = new int[rand.nextInt(MAXARRAYLEN - MINARRAYLEN + MINARRAYLEN) + MINARRAYLEN];
-
-            //swapTimes2
-            // int[] array = new int[i];
-
-            //swapTimes3
-            //int[] array = new int[100];
-
-            for (int j = 0; j < array.length - 1; j++) {
-
-                //random int from 1 - 100
-                array[j] = rand.nextInt(MAXRANDELEMENT - MINRANDELEMENT + MINRANDELEMENT) + MINRANDELEMENT;
-            }
-
-            arrays.add(array);
-        }
-
-//        int[] a1 = {4,1,3,2};
-//        int[] a2 = {1,2,3,4};
-//        int[] a3 = {1,1,1,1};
-//        int[] a4 = {4,3,2,1};
-//        int[] a5 = {1,2,4,3};
-//        int[] a6 = {4,1,3,2};
-//
-//        arrays.add(dummy);
-//        arrays.add(a1);
-//        arrays.add(a2);
-//        arrays.add(a3);
-//        arrays.add(a4);
-//        arrays.add(a5);
-//        arrays.add(a6);
-
-
-        double[][] swapTimes = new double[arrays.size()][3];
-
-        int c = 0;
-
-        for (int[] array : arrays) {
-            swaps = 0;
-            double timeTaken = timeAndSort(array);
-            swapTimes[c][0] = swaps;
-            swapTimes[c][1] = timeTaken;
-            swapTimes[c][2] = array.length;
-            c++;
-        }
-
+        //remove outliers from the data
         double[][] pruned = pruneOutliers(swapTimes);
-        double[][] csvData = calculateMetrics(pruned);
+
+        //calculate a sortedness metric from the number of swaps
+        //double[][] csvData = calculateMetrics(pruned);
 
         try {
-            writeData(csvData);
+            //write complete CSV data to the file
+            writeData(pruned);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
 
+    }
+
+    static ArrayList<int[]> createArrays()  {
+        Random rand = new Random();
+
+        //list to hold all arrays
+        ArrayList<int[]> arrays = new ArrayList<>();
+
+        //stoopid
+        int[] dummy = new int[MAXARRAYLEN];
+        arrays.add(dummy);
+
+        //create number of arrays specified
+        for (int i = 0; i < NUMARRAYS; i++) {
+
+            //create array with random length with range specified
+            int[] array = new int[MAXARRAYLEN];
+            //rand.nextInt(MAXARRAYLEN - MINARRAYLEN + MINARRAYLEN) + MINARRAYLEN
+            //fill array with random integers with range specified
+
+            HashSet<Integer> numSet = new HashSet<>();
+
+            for (int j = 0; j < array.length; j++) {
+
+                boolean done = false;
+                while (!done) {
+                    int randomInt = rand.nextInt(MAXRANDELEMENT - MINRANDELEMENT + MINRANDELEMENT) + MINRANDELEMENT;
+
+                    if (!(numSet.contains(randomInt))) {
+                        array[j] = randomInt;
+                        numSet.add(randomInt);
+                        done = true;
+                    }
+                }
+            }
+
+            //add array to list
+            arrays.add(array);
+        }
+
+        return arrays;
+    }
+
+    static double[][] sortArrays(ArrayList<int[]> arrays) {
+
+        //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
+        double[][] swapTimes = new double[arrays.size()][3];
+
+
+        //fill 2D array with data
+        int c = 0;
+        for (int[] array : arrays) {
+            System.out.println(Arrays.toString(array));
+
+            //reset swap field for every array
+            swaps = 0;
+
+            swapTimes[c][0] = scoreArray(array);
+
+            //sort array
+            double timeTaken = timeAndSort(array);
+            swapTimes[c][1] = timeTaken;
+            swapTimes[c][2] = array.length;
+            c++;
+        }
+
+        return swapTimes;
+
+    }
+
+    //returns number of inversions in array
+    static double scoreArray(int[] array) {
+        int n = array.length;
+
+        int inversions = 0;
+        for (int i = 0; i < n - 1; i++)
+            for (int j = i + 1; j < n; j++)
+                if (array[i] > array[j])
+                    inversions++;
+
+        return inversions;
     }
 
     static double[][] pruneOutliers(double[][] swapTimes) {
@@ -102,10 +139,10 @@ public class Quicksort {
 
         avgTime = sumTimes / swapTimes.length;
 
-        double validMax = avgTime * 2   ;
+        double validMax = avgTime * OUTLIERTOLERANCE;
 
-        System.out.println("Average sort time from dataset: "  + avgTime+"ms");
-        System.out.println("Maximum non-outlier time: " + validMax +"ms\n");
+        System.out.println("Average sort time from dataset: " + avgTime + "ms");
+        System.out.println("Maximum non-outlier time: " + validMax + "ms\n");
 
         int c = 0;
         int prunes = 0;
@@ -116,10 +153,10 @@ public class Quicksort {
                 prunedTimes[c][1] = swapTimes[i][1];
                 prunedTimes[c][2] = swapTimes[i][2];
                 c++;
-            } else{
-                if(prunes <= 50) {
-                    System.out.println("Pruned a row of data with time: " + swapTimes[i][1] + "ms");
-                } else if(prunes == 51){
+            } else {
+                if (prunes <= 50) {
+                    System.out.println("Removed a row of data with time: " + swapTimes[i][1] + "ms");
+                } else if (prunes == 51) {
                     System.out.println("Over 50 records pruned... cancelling system outs to reduce clutter");
                 }
                 prunes++;
@@ -133,13 +170,13 @@ public class Quicksort {
 
     }
 
-    static double[][] calculateMetrics(double[][] pruned){
+    static double[][] calculateMetrics(double[][] pruned) {
 
         //find maximum number of swaps in the data
-        int maxSwaps = 0;
+        int maxInversions = 0;
         for (double[] row : pruned) {
-            if( (int) row[0] > maxSwaps)
-                maxSwaps = (int) row[0];
+            if ((int) row[0] > maxInversions)
+                maxInversions = (int) row[0];
         }
 
         //calculating "sortedness" metric by dividing number of swaps by the maximum
@@ -148,13 +185,13 @@ public class Quicksort {
         //unsorted = 1
         //0 > slightly sorted < 1
         for (int i = 0; i < pruned.length; i++) {
-            double metric = pruned[i][0] / maxSwaps;
+            double metric = pruned[i][0] / maxInversions;
             pruned[i][0] = metric;
         }
 
-            return pruned;
+        return pruned;
 
-        }
+    }
 
     static void writeData(double[][] csvData) throws IOException {
 
@@ -184,7 +221,7 @@ public class Quicksort {
         writer.flush();
         writer.close();
 
-        System.out.print( "... data successfully written");
+        System.out.print("... data successfully written");
 
 
     }
@@ -198,7 +235,7 @@ public class Quicksort {
      */
     static double timeAndSort(int[] array) {
 
-     //debug sysout
+        //debug sysout
         //System.out.println(Arrays.toString(array));
 
         //get starting system time in nanoseconds
@@ -211,13 +248,14 @@ public class Quicksort {
         long endTime = System.nanoTime();
 
 
-     //debug sysout
+        //debug sysout
         //System.out.println(diffTime + " ms");
         //System.out.println(swaps + " swaps");
         //System.out.println("\n");
 
         //return the difference in milliseconds
-        return (endTime - startTime) / 1e6;
+
+        return (endTime - startTime) /1e6;
     }
 
     /**
@@ -265,22 +303,22 @@ public class Quicksort {
             if (array[j] < pivot) {
                 i++;    // increment index of smaller element
 
-                if (array[j] != array[i]) {
-                    int temp = array[j];
-                    array[j] = array[i];
-                    array[i] = temp;
-                    swaps++;
-                }
+                //if (array[j] != array[i]) {
+                int temp = array[j];
+                array[j] = array[i];
+                array[i] = temp;
+                swaps++;
+                // }
 
             }
         }
 
-        if (array[i + 1] != array[end]) {
-            int temp = array[i + 1];
-            array[i + 1] = array[end];
-            array[end] = temp;
-            swaps++;
-        }
+        //  if (array[i + 1] != array[end]) {
+        int temp = array[i + 1];
+        array[i + 1] = array[end];
+        array[end] = temp;
+        swaps++;
+        // }
         return (i + 1);
     }
 
