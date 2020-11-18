@@ -1,10 +1,11 @@
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 
 public class Quicksort {
 
     static int swaps;
-    static final int NUMARRAYS = 100;
+    static final int NUMARRAYS = 5;
 
     static final int MAXRANDELEMENT = 10;
     static final int MINRANDELEMENT = 1;
@@ -12,7 +13,7 @@ public class Quicksort {
     static final int MAXARRAYLEN = 10;
     static final int MINARRAYLEN = 10;
 
-    static final int OUTLIERTOLERANCE = 2;
+    static final int OUTLIERTOLERANCE = 3;
 
     public static void main(String[] args) {
 
@@ -30,11 +31,11 @@ public class Quicksort {
         double[][] pruned = pruneOutliers(swapTimes);
 
         //calculate a sortedness metric from the number of swaps
-        //double[][] csvData = calculateMetrics(pruned);
+        double[][] csvData = calculateMetrics(pruned);
 
         try {
             //write complete CSV data to the file
-            writeData(pruned);
+            writeData(csvData);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -42,43 +43,58 @@ public class Quicksort {
 
     }
 
-    static ArrayList<int[]> createArrays()  {
-        Random rand = new Random();
+
+    /**
+     * https://stackoverflow.com/questions/2920315/permutation-of-array
+     *
+     * @param arr
+     * @param k
+     * @param permutations
+     */
+    static void permute(List<Integer> arr, int k, ArrayList<String> permutations) {
+        for (int i = k; i < arr.size(); i++) {
+            java.util.Collections.swap(arr, i, k);
+            permute(arr, k + 1, permutations);
+            java.util.Collections.swap(arr, k, i);
+        }
+        if (k == arr.size() - 1) {
+            permutations.add(java.util.Arrays.toString(arr.toArray()));
+        }
+    }
+
+
+    static ArrayList<int[]> createArrays() {
 
         //list to hold all arrays
         ArrayList<int[]> arrays = new ArrayList<>();
 
         //stoopid
-        int[] dummy = new int[MAXARRAYLEN];
+        int[] dummy = new int[0];
         arrays.add(dummy);
 
-        //create number of arrays specified
-        for (int i = 0; i < NUMARRAYS; i++) {
+        ArrayList<String> permutations = new ArrayList<>();
 
-            //create array with random length with range specified
-            int[] array = new int[MAXARRAYLEN];
-            //rand.nextInt(MAXARRAYLEN - MINARRAYLEN + MINARRAYLEN) + MINARRAYLEN
-            //fill array with random integers with range specified
+        Integer[] list = new Integer[NUMARRAYS];
+        for(int i = 1; i <= NUMARRAYS; i ++){
+            list[i-1] = i;
+        }
 
-            HashSet<Integer> numSet = new HashSet<>();
+        permute(Arrays.asList(list), 0, permutations);
 
-            for (int j = 0; j < array.length; j++) {
+        for (String permutation : permutations) {
+            String[] strArray = (permutation.substring(1, permutation.length() - 1)).split(", ");
+            int[] intArray = new int[strArray.length];
 
-                boolean done = false;
-                while (!done) {
-                    int randomInt = rand.nextInt(MAXRANDELEMENT - MINRANDELEMENT + MINRANDELEMENT) + MINRANDELEMENT;
-
-                    if (!(numSet.contains(randomInt))) {
-                        array[j] = randomInt;
-                        numSet.add(randomInt);
-                        done = true;
-                    }
-                }
+            for (int i = 0; i < strArray.length; i++) {
+                intArray[i] = Integer.parseInt(strArray[i]);
             }
 
-            //add array to list
-            arrays.add(array);
+            arrays.add(intArray);
         }
+
+//        for(int[] array: arrays)
+//        System.out.println(Arrays.toString(array));
+
 
         return arrays;
     }
@@ -92,7 +108,6 @@ public class Quicksort {
         //fill 2D array with data
         int c = 0;
         for (int[] array : arrays) {
-            System.out.println(Arrays.toString(array));
 
             //reset swap field for every array
             swaps = 0;
@@ -112,6 +127,7 @@ public class Quicksort {
 
     //returns number of inversions in array
     static double scoreArray(int[] array) {
+
         int n = array.length;
 
         int inversions = 0;
@@ -255,7 +271,7 @@ public class Quicksort {
 
         //return the difference in milliseconds
 
-        return (endTime - startTime) /1e6;
+        return (endTime - startTime) / 1e3;
     }
 
     /**
