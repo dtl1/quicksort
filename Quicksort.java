@@ -1,3 +1,4 @@
+import javax.swing.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.util.*;
@@ -5,7 +6,7 @@ import java.util.*;
 public class Quicksort {
 
     static int swaps;
-    static final int NUMARRAYS = 5;
+    static final int NUMARRAYS = 9;
 
     static final int MAXRANDELEMENT = 10;
     static final int MINRANDELEMENT = 1;
@@ -13,34 +14,40 @@ public class Quicksort {
     static final int MAXARRAYLEN = 10;
     static final int MINARRAYLEN = 10;
 
-    static final int OUTLIERTOLERANCE = 3;
+    static final int OUTLIERTOLERANCE = 10;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
         System.out.println("Creating " + NUMARRAYS + " arrays");
         System.out.println("With random length: " + MINARRAYLEN + "->" + MAXARRAYLEN);
         System.out.println("Filled with random elements: " + MINRANDELEMENT + "->" + MAXRANDELEMENT + "\n");
 
-        //array list of all created arrays
-        ArrayList<int[]> arrays = createArrays();
+        FileWriter writer = new FileWriter("metricTimes.csv");
+        writer.append("Sortedness,Time(ms),Length\n");
 
-        //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
-        double[][] swapTimes = sortArrays(arrays);
+        for(int i = 0; i < 1; i++) {
+            //array list of all created arrays
+            ArrayList<int[]> arrays = createArrays();
 
-        //remove outliers from the data
-        double[][] pruned = pruneOutliers(swapTimes);
+            System.out.println("reached");
+            //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
+            double[][] swapTimes = sortArrays(arrays);
 
-        //calculate a sortedness metric from the number of swaps
-        double[][] csvData = calculateMetrics(pruned);
+            //remove outliers from the data
+            double[][] pruned = pruneOutliers(swapTimes);
 
-        try {
-            //write complete CSV data to the file
-            writeData(csvData);
-        } catch (IOException e) {
-            e.printStackTrace();
+            //calculate a sortedness metric from the number of swaps
+            double[][] csvData = calculateMetrics(pruned);
+
+            try {
+                //write complete CSV data to the file
+                writeData(csvData, writer);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
         }
-
-
+        writer.close();
     }
 
 
@@ -52,7 +59,7 @@ public class Quicksort {
      * @param permutations
      */
     static void permute(List<Integer> arr, int k, ArrayList<String> permutations) {
-        for (int i = k; i < arr.size(); i++) {
+        for (int i = k; i < arr.size(); i ++) {
             java.util.Collections.swap(arr, i, k);
             permute(arr, k + 1, permutations);
             java.util.Collections.swap(arr, k, i);
@@ -74,12 +81,22 @@ public class Quicksort {
 
         ArrayList<String> permutations = new ArrayList<>();
 
-        Integer[] list = new Integer[NUMARRAYS];
-        for(int i = 1; i <= NUMARRAYS; i ++){
-            list[i-1] = i;
+        Integer[] totalList = new Integer[NUMARRAYS];
+        for(int i = 1; i < NUMARRAYS + 1; i++){
+            totalList[i-1] = i;
         }
 
-        permute(Arrays.asList(list), 0, permutations);
+        Integer[] leftList = new Integer[(totalList.length + 1)/2];
+        Integer[] rightList = new Integer[totalList.length - leftList.length];
+
+        System.arraycopy(totalList, 0, leftList, 0, leftList.length);
+        System.arraycopy(totalList, leftList.length, rightList, 0, rightList.length);
+
+
+        permute(Arrays.asList(totalList), 0, permutations);
+      //  permute(Arrays.asList(totalList), 2, permutations);
+
+
 
         for (String permutation : permutations) {
             String[] strArray = (permutation.substring(1, permutation.length() - 1)).split(", ");
@@ -209,14 +226,11 @@ public class Quicksort {
 
     }
 
-    static void writeData(double[][] csvData) throws IOException {
+    static void writeData(double[][] csvData, FileWriter writer) throws IOException {
 
-
-        FileWriter writer = new FileWriter("metricTimes.csv");
 
         System.out.println("\nWriting data...");
 
-        writer.append("Sortedness,Time(ms),Length\n");
 
         for (double[] row : csvData) {
 
@@ -235,7 +249,7 @@ public class Quicksort {
 
 
         writer.flush();
-        writer.close();
+
 
         System.out.print("... data successfully written");
 
@@ -254,16 +268,31 @@ public class Quicksort {
         //debug sysout
         //System.out.println(Arrays.toString(array));
 
-        //get starting system time in nanoseconds
-        long startTime = System.nanoTime();
+        double[] allTimes = new double[1000];
 
-        //sort the array
-        quickSort(array, 0, array.length - 1);
+        for(int i = 0; i < allTimes.length; i++) {
 
-        //get ending system time in nanoseconds
-        long endTime = System.nanoTime();
+            int[] arrayCopy = new int[array.length];
+
+            System.arraycopy(array, 0, arrayCopy, 0, array.length);
 
 
+            //get starting system time in nanoseconds
+            long startTime = System.nanoTime();
+
+            //sort the array
+            quickSort(arrayCopy, 0, arrayCopy.length - 1);
+
+            //get ending system time in nanoseconds
+            long endTime = System.nanoTime();
+
+
+            double diffTime = (endTime - startTime);
+
+            allTimes[i] = diffTime;
+
+
+        }
         //debug sysout
         //System.out.println(diffTime + " ms");
         //System.out.println(swaps + " swaps");
@@ -271,7 +300,13 @@ public class Quicksort {
 
         //return the difference in milliseconds
 
-        return (endTime - startTime) / 1e3;
+        double totalTime = 0.00;
+        for(double time: allTimes){
+            totalTime += time;
+        }
+
+        //returns average time taken to sort
+        return (totalTime / allTimes.length);
     }
 
     /**
