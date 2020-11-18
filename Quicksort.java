@@ -1,279 +1,158 @@
-import javax.swing.*;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.*;
 
 public class Quicksort {
+    
+    //length of arrays to be sorted
+    static final int ARRAYLEN = 500;
 
-    static int swaps;
-    static final int NUMARRAYS = 9;
+    //number of times to sort each array
+    static final int REPETITIONS = 500;
 
-    static final int MAXRANDELEMENT = 10;
-    static final int MINRANDELEMENT = 1;
+    public static void main(String[] args) {
 
-    static final int MAXARRAYLEN = 10;
-    static final int MINARRAYLEN = 10;
+        System.out.println("Creating " + ARRAYLEN + " arrays");
+        System.out.println("With length: " + ARRAYLEN);
 
-    static final int OUTLIERTOLERANCE = 10;
+        //hashmap of all created arrays and their number of swaps
+        HashMap<int[], Integer> arraySwaps = createArrays();
 
-    public static void main(String[] args) throws IOException {
+        System.out.println("\nArrays created");
+        System.out.println("\nSorting arrays: " + REPETITIONS + " times");
 
-        System.out.println("Creating " + NUMARRAYS + " arrays");
-        System.out.println("With random length: " + MINARRAYLEN + "->" + MAXARRAYLEN);
-        System.out.println("Filled with random elements: " + MINRANDELEMENT + "->" + MAXRANDELEMENT + "\n");
+        //2D array where each row is a record with the metric based onn number of swaps and the time taken to sort
+        double[][] swapTimes = sortArrays(arraySwaps);
 
-        FileWriter writer = new FileWriter("metricTimes.csv");
-        writer.append("Sortedness,Time(ms),Length\n");
+        System.out.println("\nArrays sorted");
 
-        for(int i = 0; i < 1; i++) {
-            //array list of all created arrays
-            ArrayList<int[]> arrays = createArrays();
-
-            System.out.println("reached");
-            //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
-            double[][] swapTimes = sortArrays(arrays);
-
-            //remove outliers from the data
-            double[][] pruned = pruneOutliers(swapTimes);
-
-            //calculate a sortedness metric from the number of swaps
-            double[][] csvData = calculateMetrics(pruned);
-
-            try {
-                //write complete CSV data to the file
-                writeData(csvData, writer);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
+        try {
+            //write complete CSV data to the file
+            writeData(swapTimes);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        writer.close();
-    }
 
+    }
 
     /**
-     * https://stackoverflow.com/questions/2920315/permutation-of-array
+     * creates all arrays being sorted and fills them into a hashmap
      *
-     * @param arr
-     * @param k
-     * @param permutations
+     * @return hashmap of all arrays and their number of swaps
      */
-    static void permute(List<Integer> arr, int k, ArrayList<String> permutations) {
-        for (int i = k; i < arr.size(); i ++) {
-            java.util.Collections.swap(arr, i, k);
-            permute(arr, k + 1, permutations);
-            java.util.Collections.swap(arr, k, i);
-        }
-        if (k == arr.size() - 1) {
-            permutations.add(java.util.Arrays.toString(arr.toArray()));
-        }
-    }
+    static HashMap<int[], Integer> createArrays() {
 
-
-    static ArrayList<int[]> createArrays() {
-
-        //list to hold all arrays
-        ArrayList<int[]> arrays = new ArrayList<>();
+        //map to hold all arrays and their number of swaps
+        HashMap<int[], Integer> arraySwaps = new HashMap<>();
 
         //stoopid
         int[] dummy = new int[0];
-        arrays.add(dummy);
+        arraySwaps.put(dummy, -1);
 
-        ArrayList<String> permutations = new ArrayList<>();
-
-        Integer[] totalList = new Integer[NUMARRAYS];
-        for(int i = 1; i < NUMARRAYS + 1; i++){
-            totalList[i-1] = i;
+        //create and fill sorted list with numbers 1 -> ARRAYLEN
+        //and reversed sorted list with numbers ARRAYLEN -> 1
+        int[] sortedList = new int[ARRAYLEN];
+        int[] reverseSortedList = new int[ARRAYLEN];
+        for (int i = 1; i < ARRAYLEN + 1; i++) {
+            sortedList[i - 1] = i;
+            reverseSortedList[i - 1] = (ARRAYLEN + 1) - i;
         }
 
-        Integer[] leftList = new Integer[(totalList.length + 1)/2];
-        Integer[] rightList = new Integer[totalList.length - leftList.length];
 
-        System.arraycopy(totalList, 0, leftList, 0, leftList.length);
-        System.arraycopy(totalList, leftList.length, rightList, 0, rightList.length);
+        for (int i = 0; i < (ARRAYLEN / 2); i++) {
 
+            //copy original lists
+            int[] sortedArrayCopy = new int[sortedList.length];
+            int[] reverseSortedArrayCopy = new int[reverseSortedList.length];
+            System.arraycopy(sortedList, 0, sortedArrayCopy, 0, sortedList.length);
+            System.arraycopy(reverseSortedList, 0, reverseSortedArrayCopy, 0, reverseSortedList.length);
 
-        permute(Arrays.asList(totalList), 0, permutations);
-      //  permute(Arrays.asList(totalList), 2, permutations);
+            //perform swaps on arrays i times and then place the swapped array and the number of swaps
+            //into the hashmap
+            doSwaps(sortedArrayCopy, i);
+            arraySwaps.put(sortedArrayCopy, i);
 
-
-
-        for (String permutation : permutations) {
-            String[] strArray = (permutation.substring(1, permutation.length() - 1)).split(", ");
-            int[] intArray = new int[strArray.length];
-
-            for (int i = 0; i < strArray.length; i++) {
-                intArray[i] = Integer.parseInt(strArray[i]);
-            }
-
-            arrays.add(intArray);
+            doSwaps(reverseSortedArrayCopy, i);
+            arraySwaps.put(reverseSortedArrayCopy, ARRAYLEN - i);
         }
 
-//        for(int[] array: arrays)
-//        System.out.println(Arrays.toString(array));
 
-
-        return arrays;
+        return arraySwaps;
     }
 
-    static double[][] sortArrays(ArrayList<int[]> arrays) {
+    /**
+     * randomly swaps 2 elements in an array, "swaps" number of times
+     *
+     * @param array array to swap elements in
+     * @param swaps number of swaps to occur
+     */
+    static void doSwaps(int[] array, int swaps) {
+        Random rand = new Random();
+
+        for (int i = 0; i < swaps; i++) {
+            boolean validSwap = false;
+            while (!validSwap) {
+                int index1 = rand.nextInt(array.length);
+                int index2 = rand.nextInt(array.length);
+                if (array[index1] != array[index2]) {
+                    swap(array, index1, index2);
+                    validSwap = true;
+                }
+            }
+        }
+
+    }
+
+    /**
+     * calls timeAndSort on every array in the map and then fills an entry in the 2D array with the result
+     *
+     * @param arraySwaps hashmap of arrays and their number of swaps
+     * @return 2D array of metrics and times
+     */
+    static double[][] sortArrays(HashMap<int[], Integer> arraySwaps) {
 
         //2D array where each row is a record with the number of swaps, time taken to sort, and length of the array
-        double[][] swapTimes = new double[arrays.size()][3];
+        double[][] swapTimes = new double[arraySwaps.size()][2];
 
 
         //fill 2D array with data
         int c = 0;
-        for (int[] array : arrays) {
+        for (Map.Entry<int[], Integer> entry : arraySwaps.entrySet()) {
 
-            //reset swap field for every array
-            swaps = 0;
+            //calculating "sortedness" metric by dividing number of swaps by the maximum
+            //therefore
+            //sorted = 0
+            //reverse sorted = 1
+            //0 > unsorted < 1
+            swapTimes[c][0] = (entry.getValue() / (ARRAYLEN * 1.00));
 
-            swapTimes[c][0] = scoreArray(array);
+            //sort array and get the average time taken
+            double timeTaken = timeAndSort(entry.getKey());
 
-            //sort array
-            double timeTaken = timeAndSort(array);
             swapTimes[c][1] = timeTaken;
-            swapTimes[c][2] = array.length;
             c++;
         }
+
 
         return swapTimes;
 
     }
 
-    //returns number of inversions in array
-    static double scoreArray(int[] array) {
-
-        int n = array.length;
-
-        int inversions = 0;
-        for (int i = 0; i < n - 1; i++)
-            for (int j = i + 1; j < n; j++)
-                if (array[i] > array[j])
-                    inversions++;
-
-        return inversions;
-    }
-
-    static double[][] pruneOutliers(double[][] swapTimes) {
-
-
-        double[][] prunedTimes = new double[swapTimes.length][3];
-
-        double sumTimes = 0;
-        double avgTime;
-
-
-        //skip the first dummy result
-        for (int i = 1; i < swapTimes.length; i++) {
-            sumTimes += swapTimes[i][1];
-        }
-
-        avgTime = sumTimes / swapTimes.length;
-
-        double validMax = avgTime * OUTLIERTOLERANCE;
-
-        System.out.println("Average sort time from dataset: " + avgTime + "ms");
-        System.out.println("Maximum non-outlier time: " + validMax + "ms\n");
-
-        int c = 0;
-        int prunes = 0;
-        //skip the first dummy result
-        for (int i = 1; i < swapTimes.length; i++) {
-            if (swapTimes[i][1] < validMax) {
-                prunedTimes[c][0] = swapTimes[i][0];
-                prunedTimes[c][1] = swapTimes[i][1];
-                prunedTimes[c][2] = swapTimes[i][2];
-                c++;
-            } else {
-                if (prunes <= 50) {
-                    System.out.println("Removed a row of data with time: " + swapTimes[i][1] + "ms");
-                } else if (prunes == 51) {
-                    System.out.println("Over 50 records pruned... cancelling system outs to reduce clutter");
-                }
-                prunes++;
-            }
-        }
-
-        System.out.println("\nPruned dataset now contains: " + (prunedTimes.length - prunes) + " records");
-
-        return prunedTimes;
-
-
-    }
-
-    static double[][] calculateMetrics(double[][] pruned) {
-
-        //find maximum number of swaps in the data
-        int maxInversions = 0;
-        for (double[] row : pruned) {
-            if ((int) row[0] > maxInversions)
-                maxInversions = (int) row[0];
-        }
-
-        //calculating "sortedness" metric by dividing number of swaps by the maximum
-        //therefore
-        //sorted = 0
-        //unsorted = 1
-        //0 > slightly sorted < 1
-        for (int i = 0; i < pruned.length; i++) {
-            double metric = pruned[i][0] / maxInversions;
-            pruned[i][0] = metric;
-        }
-
-        return pruned;
-
-    }
-
-    static void writeData(double[][] csvData, FileWriter writer) throws IOException {
-
-
-        System.out.println("\nWriting data...");
-
-
-        for (double[] row : csvData) {
-
-            //skips null elements where outliers have been removed
-            if (row[1] != 0) {
-
-
-                double swap = row[0];
-                double time = row[1];
-                int length = (int) row[2];
-
-                String strVar = swap + "," + time + "," + length + "\n";
-                writer.append(strVar);
-            }
-        }
-
-
-        writer.flush();
-
-
-        System.out.print("... data successfully written");
-
-
-    }
-
     /**
-     * calls the quicksort function on an unsorted array and calculates the time taken
+     * calls the quicksort function on an unsorted array REPETITIONS times and calculates the time taken
      * to sort the array
      *
      * @param array array to be sorted
-     * @return the time taken to sort the array
+     * @return the average time taken to sort the array
      */
     static double timeAndSort(int[] array) {
 
-        //debug sysout
-        //System.out.println(Arrays.toString(array));
+        //array to store every time result from sorting array
+        double[] allTimes = new double[REPETITIONS];
 
-        double[] allTimes = new double[1000];
+        for (int i = 0; i < allTimes.length; i++) {
 
-        for(int i = 0; i < allTimes.length; i++) {
-
+            //copy the array
             int[] arrayCopy = new int[array.length];
-
             System.arraycopy(array, 0, arrayCopy, 0, array.length);
 
 
@@ -286,27 +165,19 @@ public class Quicksort {
             //get ending system time in nanoseconds
             long endTime = System.nanoTime();
 
-
+            //calculate difference
             double diffTime = (endTime - startTime);
-
             allTimes[i] = diffTime;
-
-
         }
-        //debug sysout
-        //System.out.println(diffTime + " ms");
-        //System.out.println(swaps + " swaps");
-        //System.out.println("\n");
 
-        //return the difference in milliseconds
-
+        //get total of all differences
         double totalTime = 0.00;
-        for(double time: allTimes){
+        for (double time : allTimes) {
             totalTime += time;
         }
 
-        //returns average time taken to sort
-        return (totalTime / allTimes.length);
+        //returns average time taken to sort in milliseconds
+        return (totalTime / allTimes.length) / 1e6;
     }
 
     /**
@@ -317,7 +188,6 @@ public class Quicksort {
      * @param end   ending index
      */
     static void quickSort(int[] array, int start, int end) {
-
         if (start < end) {
 
             //partition index
@@ -343,34 +213,70 @@ public class Quicksort {
      */
     static int partition(int[] array, int start, int end) {
 
-        // pivot
         int pivot = array[end];
-
 
         int i = (start - 1);
 
         for (int j = start; j <= end - 1; j++) {
-            // If current element is smaller than the pivot
+            //if current element is smaller than the pivot
             if (array[j] < pivot) {
-                i++;    // increment index of smaller element
+                // increment index of smaller element
+                i++;
 
-                //if (array[j] != array[i]) {
-                int temp = array[j];
-                array[j] = array[i];
-                array[i] = temp;
-                swaps++;
-                // }
-
+                //swap elements at index's j and i
+                swap(array, j, i);
             }
         }
 
-        //  if (array[i + 1] != array[end]) {
-        int temp = array[i + 1];
-        array[i + 1] = array[end];
-        array[end] = temp;
-        swaps++;
-        // }
+        //swap elements at index's i+1 and end
+        swap(array, i +1, end);
+
         return (i + 1);
+    }
+
+    /**
+     * writes the metric and time taken to sort for every array to a csv file
+     *
+     * @param csvData data to be written
+     * @throws IOException when creating writer
+     */
+    static void writeData(double[][] csvData) throws IOException {
+
+        FileWriter writer = new FileWriter("metricTimes.csv");
+
+        System.out.println("\nWriting data...");
+
+        //append column headers to file
+        writer.append("Sortedness,Time(ms)\n");
+
+        //append all rows from data to file
+        for (double[] row : csvData) {
+            //skips dummy element
+            if (row[0] >= 0) {
+                String strVar = row[0] + "," + row[1] + "\n";
+                writer.append(strVar);
+            }
+        }
+
+        //close writer
+        writer.flush();
+        writer.close();
+
+        System.out.print("... data successfully written");
+
+    }
+
+    /**
+     * swaps 2 elements in an array
+     *
+     * @param array array to swap elements in
+     * @param i1 index of first element being swapped
+     * @param i2 index of second element being swapped
+     */
+    static void swap(int[] array, int i1, int i2) {
+        int temp = array[i1];
+        array[i1] = array[i2];
+        array[i2] = temp;
     }
 
 }
